@@ -133,6 +133,10 @@ func cloneRepo(repourl, cloneDir string) (error){
 	Info("Cloned...")
 	return nil
 }
+// TODO:
+// Add clone command - -in <repo_list> -out <store_dir> -u <user> -p <pass>/<token> // support https
+// Add add_ssh_remote -repo_dir <repo_dir> -remote_name <remote_name> -type <ssh> -ssh_user <git> - add remote - e.g. - github git@github:/reponame.git
+// Add fetch_all -repo_dir - iterate and fetch_all
 
 func main() {
 	parseArgs()
