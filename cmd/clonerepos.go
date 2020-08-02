@@ -21,24 +21,44 @@ type Repo struct {
 }
 
 func parseArgs() {
-	flag.StringVar(&ReposList, "in", "", "Input file for the repos")
-	flag.StringVar(&Cmd, "cmd", "clone", "git command. Available cmds - clone, list")
-	flag.StringVar(&CloneDir, "out", "", "Output directory for the repos")
 
-	flag.Parse()
+	cloneFlagSet := flag.NewFlagSet("clone", flag.ExitOnError)
 
-	if len(ReposList) == 0 {
-		fmt.Println("You did not supplied input file name")
+	cloneFlagSet.StringVar(&ReposList, "in", "", "Input file for the repos")
+	cloneFlagSet.StringVar(&Cmd, "cmd", "clone", "git command. Available cmds - clone, list")
+	cloneFlagSet.StringVar(&CloneDir, "out", "", "Output directory for the repos")
+
+	// Verify that a subcommand has been provided
+	// os.Arg[0] is the main command
+	// os.Arg[1] will be the subcommand
+	if len(os.Args) < 2 {
+		fmt.Println("sub command is required. e.g. clone")
 		os.Exit(1)
 	}
 
-	if len(CloneDir) == 0 {
-		fmt.Println("You did not supplied output directory")
+	switch os.Args[1] {
+	case "clone": cloneFlagSet.Parse(os.Args[2:])
+	default:
+		flag.PrintDefaults()
 		os.Exit(1)
 	}
-	fmt.Printf("Using %s file for incoming repos\n", ReposList)
-	fmt.Printf("Using %s output directory for the repos\n", CloneDir)
-	fmt.Printf("Command is %s\n", Cmd)
+
+	if cloneFlagSet.Parsed() {
+		if len(ReposList) == 0 {
+			fmt.Println("You did not supplied input file name")
+			os.Exit(1)
+		}
+
+		if len(CloneDir) == 0 {
+			fmt.Println("You did not supplied output directory")
+			os.Exit(1)
+		}
+		fmt.Printf("Using %s file for incoming repos\n", ReposList)
+		fmt.Printf("Using %s output directory for the repos\n", CloneDir)
+		fmt.Printf("Command is %s\n", Cmd)
+
+	}
+
 
 }
 
