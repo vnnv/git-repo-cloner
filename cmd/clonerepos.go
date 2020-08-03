@@ -13,9 +13,9 @@ import (
 )
 
 var (
+	Cmd 		  string
 	ReposList     string
 	CloneDir      string
-	Cmd           string
 	AddSshRemote  bool
 	SshUserName   string
 	SshRemoteName string
@@ -30,7 +30,6 @@ func parseArgs() {
 	cloneFlagSet := flag.NewFlagSet("clone", flag.ExitOnError)
 
 	cloneFlagSet.StringVar(&ReposList, "in", "", "Input file for the repos")
-	cloneFlagSet.StringVar(&Cmd, "cmd", "clone", "git command. Available commands - clone, list")
 	cloneFlagSet.StringVar(&CloneDir, "out", "", "Output directory for the repos")
 	cloneFlagSet.BoolVar(&AddSshRemote, "add-ssh-remote", false, "Add ssh remote along with http(s)")
 	cloneFlagSet.StringVar(&SshUserName, "ssh-user", "git", "Ssh user to access the repo")
@@ -74,8 +73,7 @@ func parseArgs() {
 		}
 		fmt.Printf("Using %s file for incoming repos\n", ReposList)
 		fmt.Printf("Using %s output directory for the repos\n", CloneDir)
-		fmt.Printf("Command is %s\n", Cmd)
-
+		Cmd = "clone"
 	}
 
 }
