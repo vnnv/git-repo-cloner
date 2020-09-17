@@ -120,21 +120,6 @@ func ReadRepos(filename string) (*[]Repo, int) {
 	return &res, len(res)
 }
 
-// Info should be used to describe the example commands that are about to run.
-//func Info(format string, args ...interface{}) {
-//	fmt.Printf("\x1b[34;1m%s\x1b[0m\n", fmt.Sprintf(format, args...))
-//}
-
-func CheckIfError(err error) {
-	if err == nil {
-		return
-	}
-
-	// TODO - refactorin
-	log.Errorf("\x1b[31;1m%s\x1b[0m\n", fmt.Sprintf("error: %s", err))
-	os.Exit(1)
-}
-
 func CloneCmd(repos *[]Repo) error {
 	for _, r := range *repos {
 		log.Infof("git clone %s", r.Url)
@@ -153,7 +138,12 @@ func CloneCmd(repos *[]Repo) error {
 		}
 		if !exist {
 			repo, err := cloneRepo(r.Url, cloneDir)
-			CheckIfError(err)
+
+			if err != nil {
+				log.Errorf("\x1b[31;1m%s\x1b[0m\n", fmt.Sprintf("error: %s", err))
+				// skip it
+				continue
+			}
 			if AddSshRemote {
 				addRemoteToRepo(repo, r.Url, SshUserName, SshRemoteName, true)
 			}
@@ -273,7 +263,9 @@ func cloneRepo(repoUrl, cloneDir string) (*git.Repository, error) {
 		Progress:          nil,
 		Tags:              0,
 	})
-	CheckIfError(err)
+	if err != nil {
+		return nil, err
+	}
 
 	log.Info("Cloned...")
 	return r, nil
