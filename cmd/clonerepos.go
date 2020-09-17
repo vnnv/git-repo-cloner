@@ -10,15 +10,18 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v5"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
-	Cmd 		  string
-	ReposList     string
-	CloneDir      string
-	AddSshRemote  bool
-	SshUserName   string
-	SshRemoteName string
+	Cmd             string
+	ReposList       string
+	CloneDir        string
+	AddSshRemote    bool
+	SshUserName     string
+	SshRemoteName   string
+	CredentialsUser string
+	CredentialsPass string
 )
 
 type Repo struct {
@@ -34,12 +37,14 @@ func parseArgs() {
 	cloneFlagSet.BoolVar(&AddSshRemote, "add-ssh-remote", false, "Add ssh remote along with http(s)")
 	cloneFlagSet.StringVar(&SshUserName, "ssh-user", "git", "Ssh user to access the repo")
 	cloneFlagSet.StringVar(&SshRemoteName, "ssh-remote-name", "", "Remote name for ssh access.")
+	cloneFlagSet.StringVar(&CredentialsUser, "user", "", "Auth: repo user")
+	cloneFlagSet.StringVar(&CredentialsPass, "pass", "", "Auth: repo password")
 
 	// Verify that a sub-command has been provided
 	// os.Arg[0] is the main command
 	// os.Arg[1] will be the sub-command
 	if len(os.Args) < 2 {
-		fmt.Println("sub command is required. e.g. clone")
+		log.Warn("sub command is required. e.g. clone")
 		os.Exit(1)
 	}
 
@@ -53,26 +58,26 @@ func parseArgs() {
 
 	if cloneFlagSet.Parsed() {
 		if len(ReposList) == 0 {
-			fmt.Println("You did not supplied input file name")
+			log.Error("You did not supplied input file name")
 			os.Exit(1)
 		}
 
 		if len(CloneDir) == 0 {
-			fmt.Println("You did not supplied output directory")
+			log.Error("You did not supplied output directory")
 			os.Exit(1)
 		}
 		if AddSshRemote {
 			if SshUserName == "" {
-				fmt.Println("Please specify username for ssh access.")
+				log.Error("Please specify username for ssh access.")
 				os.Exit(1)
 			}
 			if SshRemoteName == "" {
-				fmt.Println("Please specify name for ssh remote. e.g. 'github', 'upstream', etc...")
+				log.Error("Please specify name for ssh remote. e.g. 'github', 'upstream', etc...")
 				os.Exit(1)
 			}
 		}
-		fmt.Printf("Using %s file for incoming repos\n", ReposList)
-		fmt.Printf("Using %s output directory for the repos\n", CloneDir)
+		log.Infof("Using %s file for incoming repos\n", ReposList)
+		log.Infof("Using %s output directory for the repos\n", CloneDir)
 		Cmd = "clone"
 	}
 
@@ -83,23 +88,27 @@ func ReadRepos(filename string) (*[]Repo, int) {
 	var res []Repo
 
 	file, err := os.Open(filename)
-	defer file.Close()
 
 	if err != nil {
-		fmt.Printf("Error opening %s\n", filename)
-		os.Exit(1)
+		log.Errorf("Error opening %s\n", filename)
+		return nil, 0
 	}
+
+	defer file.Close()
+
 	reader := bufio.NewReader(file)
 	for {
 		line, err := reader.ReadString('\n')
-		if err != nil {
-			fmt.Errorf("Error reading line file: %s \n", err)
+		if err == io.EOF {
 			break
+		}
+		if err != nil {
+			log.Errorf("Error reading line file: %s \n", err)
+			os.Exit(1)
 		}
 		if strings.HasPrefix(line, "#") {
 			continue
 		}
-		//fmt.Printf("%s", line)
 
 		repo := Repo{
 			Url: strings.TrimSpace(line),
@@ -112,34 +121,35 @@ func ReadRepos(filename string) (*[]Repo, int) {
 }
 
 // Info should be used to describe the example commands that are about to run.
-func Info(format string, args ...interface{}) {
-	fmt.Printf("\x1b[34;1m%s\x1b[0m\n", fmt.Sprintf(format, args...))
-}
+//func Info(format string, args ...interface{}) {
+//	fmt.Printf("\x1b[34;1m%s\x1b[0m\n", fmt.Sprintf(format, args...))
+//}
 
 func CheckIfError(err error) {
 	if err == nil {
 		return
 	}
 
-	fmt.Printf("\x1b[31;1m%s\x1b[0m\n", fmt.Sprintf("error: %s", err))
+	// TODO - refactorin
+	log.Errorf("\x1b[31;1m%s\x1b[0m\n", fmt.Sprintf("error: %s", err))
 	os.Exit(1)
 }
 
 func CloneCmd(repos *[]Repo) error {
 	for _, r := range *repos {
-		Info("git clone " + r.Url)
+		log.Infof("git clone %s", r.Url)
 		cloneDirName, err := getRepoNameFromUrl(r.Url)
 		if err != nil {
-			fmt.Println("Skip ", r.Url)
+			log.Debugf("Skip %s", r.Url)
 			continue
 		}
-		fmt.Println("CloneDirName = ", cloneDirName)
+		log.Info("CloneDirName = ", cloneDirName)
 		cloneDir := CloneDir + cloneDirName
-		Info(fmt.Sprintf("Cloning in %s\n", cloneDir))
+		log.Info(fmt.Sprintf("Cloning in %s\n", cloneDir))
 
 		exist, err := checkIfRepoAlreadyExist(cloneDir)
 		if err != nil {
-			fmt.Printf("Can not clone repo %s, %w\n", r.Url, err)
+			log.Errorf("Can not clone repo %s, %w\n", r.Url, err)
 		}
 		if !exist {
 			repo, err := cloneRepo(r.Url, cloneDir)
@@ -147,8 +157,8 @@ func CloneCmd(repos *[]Repo) error {
 			if AddSshRemote {
 				addRemoteToRepo(repo, r.Url, SshUserName, SshRemoteName, true)
 			}
- 		}else{
-			fmt.Printf("Repo %s is already cloned\n", r.Url)
+		} else {
+			log.Infof("Repo %s is already cloned\n", r.Url)
 			if AddSshRemote {
 				addRemoteToRepoInDir(cloneDir, r.Url, SshUserName, SshRemoteName, true)
 			}
@@ -193,7 +203,7 @@ func checkIfRepoAlreadyExist(repoDir string) (bool, error) {
 	return true, nil
 }
 
-func addRemoteToRepoInDir(repoDir, httpUrl, sshUser, remoteName string, replaceIfExist bool ) error {
+func addRemoteToRepoInDir(repoDir, httpUrl, sshUser, remoteName string, replaceIfExist bool) error {
 	repo, err := git.PlainOpen(repoDir)
 	if err != nil {
 		return err
@@ -202,7 +212,7 @@ func addRemoteToRepoInDir(repoDir, httpUrl, sshUser, remoteName string, replaceI
 	return err
 }
 
-func generateSshRemoteUrl(httpUrl, sshUser string) string {
+func generateSSHRemoteUrl(httpUrl, sshUser string) string {
 	var tempUrl = httpUrl
 	if strings.HasPrefix(httpUrl, "ftp://") {
 		tempUrl = httpUrl[6:]
@@ -231,16 +241,16 @@ func addRemoteToRepo(repo *git.Repository, httpUrl, sshUser, remoteName string, 
 			// remote already exist
 			remoteAlreadyExist = true
 		}
- 	}
- 	if replaceIfExist && remoteAlreadyExist {
- 		// delete old remote
+	}
+	if replaceIfExist && remoteAlreadyExist {
+		// delete old remote
 		err := repo.DeleteRemote(remoteName)
 		if err != nil {
-			fmt.Printf("Error deleting remote %s \n", remoteName)
+			log.Errorf("Error deleting remote %s \n", remoteName)
 		}
 	}
 
-	sshUrl := generateSshRemoteUrl(httpUrl, sshUser)
+	sshUrl := generateSSHRemoteUrl(httpUrl, sshUser)
 	// Create new remote
 	_, err = repo.CreateRemote(&config.RemoteConfig{
 		Name: remoteName,
@@ -265,7 +275,7 @@ func cloneRepo(repoUrl, cloneDir string) (*git.Repository, error) {
 	})
 	CheckIfError(err)
 
-	Info("Cloned...")
+	log.Info("Cloned...")
 	return r, nil
 }
 
@@ -275,15 +285,18 @@ func cloneRepo(repoUrl, cloneDir string) (*git.Repository, error) {
 // Add fetch_all - repo_dir - iterate and fetch_all
 
 func main() {
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+	})
 	parseArgs()
 	repos, size := ReadRepos(ReposList)
 
 	if size == 0 {
-		fmt.Println("No repos defined for cloning")
+		log.Warn("No repos defined for cloning")
 		os.Exit(1)
 	}
 
-	fmt.Println("----------------------------------------------------")
+	log.Info("----------------------------------------------------")
 
 	if Cmd == "clone" {
 		CloneCmd(repos)

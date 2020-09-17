@@ -13,7 +13,6 @@ func Test_generateSshRemoteUrl(t *testing.T) {
 		args args
 		want string
 	}{
-		// TODO: Add test cases.
 		{name: "happyPath_https", args: args{"https://github.com/vnnv/go-epay.git"}, want: "git@github.com:vnnv/go-epay.git"},
 		{name: "happyPath_http", args: args{"http://github.com/vnnv/go-epay.git"}, want: "git@github.com:vnnv/go-epay.git"},
 		{name: "happyPath_ftp", args: args{"ftp://github.com/vnnv/go-epay.git"}, want: "git@github.com:vnnv/go-epay.git"},
@@ -21,8 +20,8 @@ func Test_generateSshRemoteUrl(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := generateSshRemoteUrl(tt.args.httpUrl, sshUser); got != tt.want {
-				t.Errorf("generateSshRemoteUrl() = %v, want %v", got, tt.want)
+			if got := generateSSHRemoteUrl(tt.args.httpUrl, sshUser); got != tt.want {
+				t.Errorf("generateSSHRemoteUrl() = %v, want %v", got, tt.want)
 			}
 		})
 	}
